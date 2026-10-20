@@ -1,0 +1,17 @@
+;; app-arxiv — itonami（dapp）の aiueos アプリ記述子（notes.edn 形）。
+;; 判定コアは aiueos/arxiv_validate.cljk（投稿検証ゲートの判定）。
+;; 正本は scripts/validate-tex.sh。pure（:effects #{}）。
+{:aiueos/component :app/arxiv-validate
+ :aiueos/kind :app
+ :aiueos/trust :untrusted
+ :aiueos/source "arxiv_validate.cljk"
+ :aiueos/wasm "arxiv_validate.wasm"
+ :aiueos/entry "main"
+ :aiueos/args []
+ :aiueos/imports #{}
+ :aiueos/exports #{:app/main
+                   :app/main-tex-judgment
+                   :app/validation-ok
+                   :app/bibtex-needed}
+ :aiueos/effects #{}
+ :aiueos/limits {:memory-pages 16 :fuel 5000000}}

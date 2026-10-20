@@ -1,0 +1,23 @@
+(ns arxiv.validate-parity-test
+  "aiueos/arxiv_validate.cljk（判定コア）と正本 validate-tex.sh の規則の parity。
+  スクリプトの分岐が変われば落ちる drift 検査。"
+  (:require [clojure.test :refer [deftest is testing]]
+            [clojure.string :as str]
+            ["fs" :as fs]))
+
+(def src
+  (fs/readFileSync (str/join "/" ["scripts" "validate-tex.sh"]) "utf8"))
+
+(deftest validation-rules-match-guest
+  (testing "guest test-main / test-single / test-none / test-multiple: main ファイル解決"
+    (is (str/includes? src "main.tex"))
+    (is (str/includes? src "No .tex files found"))
+    (is (str/includes? src "Multiple .tex files found")))
+  (testing "guest test-pass1-warn: pass 1 失敗は WARN、pass 2 失敗は ERROR"
+    (is (str/includes? src "may be resolved in pass 2"))
+    (is (str/includes? src "ERROR: Pass 2 failed")))
+  (testing "guest test-fail-closed: PDF の生成が結果判定"
+    (is (str/includes? src "PDF:   FAILED (not generated)")))
+  (testing "guest test-bibtex: citation と .bib の両方のときだけ bibtex"
+    (is (str/includes? src "citation"))
+    (is (str/includes? src "*.bib"))))

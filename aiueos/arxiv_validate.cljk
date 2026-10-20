@@ -1,0 +1,69 @@
+(ns arxiv.validate
+  "arXiv 投稿検証の判定コア — itonami dapp bundle（pure, :effects #{}）。
+
+  LaTeX 投稿の検証ゲートの判定（正本: scripts/validate-tex.sh）:
+
+  - **main ファイルの解決**: main.tex が優先。無ければディレクトリ直下の
+    .tex ちょうど 1 つを使う。0 個はエラー、**複数はエラー**
+    （「Rename the primary file to main.tex」）。
+  - **2-pass コンパイル**: pass 1 の失敗は WARN（pass 2 で解けるかもしれ
+    ない）。**判定は pass 2 と PDF の生成で行う**。
+  - bibtex は aux に citation の記録があり、.bib が存在するときだけ走る。
+
+  main-tex-judgment の戻り: 0 = main.tex を使う / 1 = 単一 .tex を使う
+    / 2 = エラー（.tex 無し）/ 3 = エラー（複数。main.tex に改名せよ）
+  validation-ok: 1 = pass 2 が成功し PDF が生成された / 0 = 不合格
+  bibtex-needed: 1 = citation と .bib の両方がある
+
+  実行 host はスカラーのみ = KIR v3 / i64/direct ABI（kernel/selfhost 両対応）。
+
+  テストはゼロ引数 test-*、戻り 1/0:
+  <amu> test aiueos/arxiv_validate.cljk"
+  (:export [main main-tex-judgment validation-ok bibtex-needed
+            test-main test-single test-none test-multiple
+            test-pass test-pass1-warn test-bibtex test-fail-closed]))
+
+(defn main [] :i64
+  0)
+
+(defn main-tex-judgment [has-main :i64 n-tex :i64] :i64
+  (if (= has-main 1)
+    0
+    (if (= n-tex 1)
+      1
+      (if (= n-tex 0) 2 3))))
+
+(defn validation-ok [pass2-ok :i64 pdf-exists :i64] :i64
+  (if (and (= pass2-ok 1) (= pdf-exists 1)) 1 0))
+
+(defn bibtex-needed [has-citation :i64 has-bib :i64] :i64
+  (if (and (= has-citation 1) (= has-bib 1)) 1 0))
+
+;; --- tests（戻り 1 = pass） ------------------------------------------------
+
+(defn test-main [] :i64
+  (if (= (main-tex-judgment 1 3) 0) 1 0))
+
+(defn test-single [] :i64
+  (if (= (main-tex-judgment 0 1) 1) 1 0))
+
+(defn test-none [] :i64
+  (if (= (main-tex-judgment 0 0) 2) 1 0))
+
+(defn test-multiple [] :i64
+  ;; 複数はエラー（main.tex に改名）
+  (if (= (main-tex-judgment 0 2) 3) 1 0))
+
+(defn test-pass [] :i64
+  (if (= (validation-ok 1 1) 1) 1 0))
+
+(defn test-pass1-warn [] :i64
+  ;; pass 1 失敗は WARN のみ。判定は pass 2 と PDF
+  (if (= (+ (validation-ok 0 1) (validation-ok 1 0) (validation-ok 0 0)) 0) 1 0))
+
+(defn test-bibtex [] :i64
+  (if (= (+ (bibtex-needed 1 1) (bibtex-needed 1 0) (bibtex-needed 0 1)) 1) 1 0))
+
+(defn test-fail-closed [] :i64
+  ;; PDF 無しは不合格
+  (if (= (validation-ok 1 0) 0) 1 0))
